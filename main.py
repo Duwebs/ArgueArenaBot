@@ -33,10 +33,10 @@ PERSONA_SKEPTIC = (
 )
 
 def generate_gemini_stable(prompt_text):
-    """Generate content using stable gemini-2.0-flash model"""
+    """Generate content using the ultra-stable gemini-1.5-flash model"""
     try:
         response = gemini_client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-1.5-flash',
             contents=prompt_text
         )
         if response and response.text:
