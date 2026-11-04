@@ -64,7 +64,7 @@ async def handle_debate_topic(update: Update, context: ContextTypes.DEFAULT_TYPE
             # --- AI 1: Gemini (Optimist) ---
             gemini_prompt = f"Topic: {topic}\nPrevious point to counter: {current_argument}"
             response_opt = gemini_client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-3.8-flash',
                 contents=f"{PERSONA_OPTIMIST}\n\n{gemini_prompt}"
             )
             optimist_text = response_opt.text
