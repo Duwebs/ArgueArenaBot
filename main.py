@@ -15,7 +15,20 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Initialize AI clients
+# Debugging prints to check if keys are loaded properly on Railway
+print(f"DEBUG -> Telegram Token Present: {bool(TELEGRAM_BOT_TOKEN)}")
+print(f"DEBUG -> Gemini Key Present: {bool(GEMINI_API_KEY)}")
+print(f"DEBUG -> OpenAI Key Present: {bool(OPENAI_API_KEY)}")
+
+# Safe initialization checks to prevent silent failures
+if not GEMINI_API_KEY:
+    raise ValueError("❌ GEMINI_API_KEY is missing from environment variables!")
+if not OPENAI_API_KEY:
+    raise ValueError("❌ OPENAI_API_KEY is missing from environment variables!")
+if not TELEGRAM_BOT_TOKEN:
+    raise ValueError("❌ TELEGRAM_BOT_TOKEN is missing from environment variables!")
+
+# Initialize AI clients safely
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -87,10 +100,6 @@ async def handle_debate_topic(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.message.reply_text("🏁 **Debate Finished!** Send a new topic if you want another debate.")
 
 def main():
-    if not TELEGRAM_BOT_TOKEN:
-        print("❌ Error: TELEGRAM_BOT_TOKEN is missing!")
-        return
-
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
