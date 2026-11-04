@@ -32,23 +32,19 @@ PERSONA_SKEPTIC = (
     "Keep your response concise (2-3 sentences max) and directly counter the opponent's previous point."
 )
 
-def generate_gemini_with_fallback(prompt_text):
-    """Try multiple Gemini models in order so if one fails, the next one takes over"""
-    models_to_try = ['gemini-3.8-flash', 'gemini-1.5-flash']
-    
-    for model_name in models_to_try:
-        try:
-            response = gemini_client.models.generate_content(
-                model=model_name,
-                contents=prompt_text
-            )
-            if response and response.text:
-                return response.text
-        except Exception as e:
-            print(f"Model {model_name} failed: {str(e)}")
-            continue # Try next model
-            
-    raise Exception("All Gemini models are currently experiencing high traffic or unavailable.")
+def generate_gemini_stable(prompt_text):
+    """Generate content using stable gemini-2.0-flash model"""
+    try:
+        response = gemini_client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt_text
+        )
+        if response and response.text:
+            return response.text
+    except Exception as e:
+        raise Exception(f"Gemini Error: {str(e)}")
+        
+    raise Exception("Gemini response returned empty.")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -66,10 +62,10 @@ async def handle_debate_topic(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     for i in range(rounds):
         try:
-            # --- AI 1: Gemini (Optimist) with Multi-Model Fallback ---
+            # --- AI 1: Gemini (Optimist) ---
             gemini_prompt = f"{PERSONA_OPTIMIST}\n\nTopic: {topic}\nPrevious point to counter: {current_argument}"
             
-            optimist_text = await asyncio.to_thread(generate_gemini_with_fallback, gemini_prompt)
+            optimist_text = await asyncio.to_thread(generate_gemini_stable, gemini_prompt)
             current_argument = optimist_text
             
             await context.bot.send_message(
