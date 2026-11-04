@@ -13,7 +13,7 @@ load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Initialize Gemini client
+# Initialize Gemini client using the official google-genai library
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 # Two different AI personas for debate
@@ -30,13 +30,13 @@ PERSONA_SKEPTIC = (
 )
 
 def generate_text(system_prompt, user_prompt):
-    """Generate response using Gemini 1.5 Flash with built-in safety fallback"""
+    """Generate response using official Google GenAI client format"""
     full_prompt = f"{system_prompt}\n\n{user_prompt}"
     
     for attempt in range(2):
         try:
             response = client.models.generate_content(
-                model='gemini-1.5-flash',
+                model='gemini-2.5-flash',
                 contents=full_prompt
             )
             if response and response.text:
@@ -51,7 +51,7 @@ def generate_text(system_prompt, user_prompt):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Welcome to ArgueArenaBot (Gemini 1.5 Flash Edition)!\n\n"
+        "👋 Welcome to ArgueArenaBot (Gemini 2.5 Flash Edition)!\n\n"
         "Send me any topic, and Optimist will debate against Skeptic live!"
     )
 
