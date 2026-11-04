@@ -33,22 +33,28 @@ PERSONA_SKEPTIC = (
 )
 
 def hf_completion(system_prompt, user_prompt):
-    """Generate content using Hugging Face serverless router"""
-    try:
-        completion = client.chat.completions.create(
-            model="meta-llama/Llama-3.3-70b-Instruct",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            max_tokens=150
-        )
-        if completion and completion.choices:
-            return completion.choices[0].message.content
-    except Exception as e:
-        raise Exception(f"Hugging Face Error: {str(e)}")
-        
-    raise Exception("Hugging Face response returned empty.")
+    """Generate content using Hugging Face with auto-retry for connection drops"""
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            completion = client.chat.completions.create(
+                model="meta-llama/Llama-3.3-70b-Instruct",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_tokens=150
+            )
+            if completion and completion.choices:
+                return completion.choices[0].message.content
+        except Exception as e:
+            if attempt < max_retries - 1:
+                time.sleep(3) # Connection drop hone par 3 second wait karke dobara try karega
+                continue
+            else:
+                raise Exception(f"Hugging Face Connection Error: {str(e)}")
+                
+    raise Exception("Hugging Face response returned empty after retries.")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -104,7 +110,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_debate_topic))
     
-    print("🤖 ArgueArenaBot is running with Hugging Face...")
+    print("🤖 ArgueArenaBot is running with Hugging Face Retry Logic...")
     app.run_polling()
 
 if __name__ == '__main__':
