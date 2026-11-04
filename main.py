@@ -19,7 +19,7 @@ client = OpenAI(
     api_key=GROQ_API_KEY
 )
 
-# Two different AI personas for debate using Groq Llama
+# Two different AI personas for debate using Groq
 PERSONA_OPTIMIST = (
     "You are an enthusiastic, futuristic optimist. You look at the bright side, "
     "believe in rapid innovation, and defend technology and progress strongly. "
@@ -32,9 +32,35 @@ PERSONA_SKEPTIC = (
     "Keep your response concise (2-3 sentences max) and directly counter the opponent's previous point."
 )
 
+def groq_completion_with_fallback(system_prompt, user_prompt):
+    """Try multiple Groq models sequentially so if one fails, the next one takes over"""
+    models_to_try = [
+        "llama-3.1-70b-versatile",
+        "llama-3.1-8b-instant",
+        "mixtral-8x7b-32768",
+        "gemma2-9b-it"
+    ]
+    
+    for model_name in models_to_try:
+        try:
+            completion = client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ]
+            )
+            if completion and completion.choices:
+                return completion.choices[0].message.content
+        except Exception as e:
+            print(f"Model {model_name} failed: {str(e)}")
+            continue # Try next model
+            
+    raise Exception("Sabhi Groq models fail ho gaye hain ya available nahi hain.")
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Welcome to ArgueArenaBot (Groq Edition)!\n\n"
+        "👋 Welcome to ArgueArenaBot (Groq Multi-Model Edition)!\n\n"
         "Send me any topic, and Groq Optimist will debate against Groq Skeptic live!"
     )
 
@@ -48,15 +74,9 @@ async def handle_debate_topic(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     for i in range(rounds):
         try:
-            # --- AI 1: Groq as Optimist ---
-            completion_opt = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": PERSONA_OPTIMIST},
-                    {"role": "user", "content": f"Topic: {topic}\nPrevious point to counter: {current_argument}"}
-                ]
-            )
-            optimist_text = completion_opt.choices[0].message.content
+            # --- AI 1: Groq Optimist with Multi-Model Fallback ---
+            opt_prompt = f"Topic: {topic}\nPrevious point to counter: {current_argument}"
+            optimist_text = await asyncio.to_thread(groq_completion_with_fallback, PERSONA_OPTIMIST, opt_prompt)
             current_argument = optimist_text
             
             await context.bot.send_message(
@@ -65,15 +85,9 @@ async def handle_debate_topic(update: Update, context: ContextTypes.DEFAULT_TYPE
             )
             await asyncio.sleep(2)
 
-            # --- AI 2: Groq as Skeptic ---
-            completion_skep = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": PERSONA_SKEPTIC},
-                    {"role": "user", "content": f"Topic: {topic}\nPrevious point to counter: {current_argument}"}
-                ]
-            )
-            skeptic_text = completion_skep.choices[0].message.content
+            # --- AI 2: Groq Skeptic with Multi-Model Fallback ---
+            skep_prompt = f"Topic: {topic}\nPrevious point to counter: {current_argument}"
+            skeptic_text = await asyncio.to_thread(groq_completion_with_fallback, PERSONA_SKEPTIC, skep_prompt)
             current_argument = skeptic_text
             
             await context.bot.send_message(
@@ -98,7 +112,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_debate_topic))
     
-    print("🤖 ArgueArenaBot is running with Groq...")
+    print("🤖 ArgueArenaBot is running with Groq Multi-Model Fallback...")
     app.run_polling()
 
 if __name__ == '__main__':
