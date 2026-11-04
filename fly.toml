@@ -1,7 +1,0 @@
-app = "argue-arena-bot"
-primary_region = "sin"
-
-[build]
-
-[processes]
-  app = "python main.py"
