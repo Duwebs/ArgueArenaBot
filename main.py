@@ -29,24 +29,28 @@ PERSONA_SKEPTIC = (
     "Keep your response concise (2-3 sentences max) and directly counter the opponent's previous point."
 )
 
-def generate_gemini_response(system_persona, prompt_text):
-    """Generate content using Gemini 2.5 Flash model"""
+def generate_gemini_safe(system_persona, prompt_text):
+    """Generate content using Gemini 2.5 Flash from your dashboard list"""
     full_prompt = f"{system_persona}\n\n{prompt_text}"
-    try:
-        response = gemini_client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=full_prompt
-        )
-        if response and response.text:
-            return response.text
-    except Exception as e:
-        raise Exception(f"Gemini Error: {str(e)}")
-        
+    for attempt in range(2):
+        try:
+            response = gemini_client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=full_prompt
+            )
+            if response and response.text:
+                return response.text
+        except Exception as e:
+            if attempt == 0:
+                time.sleep(2) # Chota sa pause dekar ek baar aur retry karega
+                continue
+            raise Exception(f"Gemini Error: {str(e)}")
+            
     raise Exception("Gemini response returned empty.")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Welcome to ArgueArenaBot (Gemini 2.5 Edition)!\n\n"
+        "👋 Welcome to ArgueArenaBot (Gemini 2.5 Flash Edition)!\n\n"
         "Send me any topic, and Gemini (Optimist) will debate against Gemini (Skeptic) live!"
     )
 
@@ -62,7 +66,7 @@ async def handle_debate_topic(update: Update, context: ContextTypes.DEFAULT_TYPE
         try:
             # --- AI 1: Gemini as Optimist ---
             opt_prompt = f"Topic: {topic}\nPrevious point to counter: {current_argument}"
-            optimist_text = await asyncio.to_thread(generate_gemini_response, PERSONA_OPTIMIST, opt_prompt)
+            optimist_text = await asyncio.to_thread(generate_gemini_safe, PERSONA_OPTIMIST, opt_prompt)
             current_argument = optimist_text
             
             await context.bot.send_message(
@@ -73,7 +77,7 @@ async def handle_debate_topic(update: Update, context: ContextTypes.DEFAULT_TYPE
 
             # --- AI 2: Gemini as Skeptic ---
             skep_prompt = f"Topic: {topic}\nPrevious point to counter: {current_argument}"
-            skeptic_text = await asyncio.to_thread(generate_gemini_response, PERSONA_SKEPTIC, skep_prompt)
+            skeptic_text = await asyncio.to_thread(generate_gemini_safe, PERSONA_SKEPTIC, skep_prompt)
             current_argument = skeptic_text
             
             await context.bot.send_message(
@@ -98,7 +102,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_debate_topic))
     
-    print("🤖 ArgueArenaBot is running with Gemini 2.5 Flash...")
+    print("🤖 ArgueArenaBot is running smoothly...")
     app.run_polling()
 
 if __name__ == '__main__':
