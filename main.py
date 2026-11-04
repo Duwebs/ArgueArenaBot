@@ -11,12 +11,15 @@ load_dotenv()
 
 # Fetch keys securely from environment variables
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Initialize OpenAI client
-openai_client = OpenAI(api_key=OPENAI_API_KEY)
+# Initialize Groq client using OpenAI SDK format
+client = OpenAI(
+    base_url="https://api.groq.com/openai/v1",
+    api_key=GROQ_API_KEY
+)
 
-# Two different AI personas for debate using OpenAI
+# Two different AI personas for debate using Groq Llama
 PERSONA_OPTIMIST = (
     "You are an enthusiastic, futuristic optimist. You look at the bright side, "
     "believe in rapid innovation, and defend technology and progress strongly. "
@@ -31,23 +34,23 @@ PERSONA_SKEPTIC = (
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Welcome to ArgueArenaBot (Cross-AI Edition)!\n\n"
-        "Send me any topic, and ChatGPT (Optimist) will debate against ChatGPT (Skeptic) live!"
+        "👋 Welcome to ArgueArenaBot (Groq Edition)!\n\n"
+        "Send me any topic, and Groq Optimist will debate against Groq Skeptic live!"
     )
 
 async def handle_debate_topic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     topic = update.message.text
     
-    await update.message.reply_text(f"🥊 **Topic Received:** *{topic}*\n\n🔥 AI vs AI debate starting, please wait...")
+    await update.message.reply_text(f"🥊 **Topic Received:** *{topic}*\n\n🔥 Groq AI vs AI debate starting, please wait...")
 
     current_argument = topic
     rounds = 3
     
     for i in range(rounds):
         try:
-            # --- AI 1: ChatGPT as Optimist ---
-            completion_opt = openai_client.chat.completions.create(
-                model="gpt-4o-mini",
+            # --- AI 1: Groq as Optimist ---
+            completion_opt = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
                 messages=[
                     {"role": "system", "content": PERSONA_OPTIMIST},
                     {"role": "user", "content": f"Topic: {topic}\nPrevious point to counter: {current_argument}"}
@@ -58,13 +61,13 @@ async def handle_debate_topic(update: Update, context: ContextTypes.DEFAULT_TYPE
             
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=f"🟢 **ChatGPT (Optimist - Round {i+1}):**\n{optimist_text}"
+                text=f"🟢 **Groq Optimist (Round {i+1}):**\n{optimist_text}"
             )
             await asyncio.sleep(2)
 
-            # --- AI 2: ChatGPT as Skeptic ---
-            completion_skep = openai_client.chat.completions.create(
-                model="gpt-4o-mini",
+            # --- AI 2: Groq as Skeptic ---
+            completion_skep = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
                 messages=[
                     {"role": "system", "content": PERSONA_SKEPTIC},
                     {"role": "user", "content": f"Topic: {topic}\nPrevious point to counter: {current_argument}"}
@@ -75,7 +78,7 @@ async def handle_debate_topic(update: Update, context: ContextTypes.DEFAULT_TYPE
             
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=f"🔴 **ChatGPT (Skeptic - Round {i+1}):**\n{skeptic_text}"
+                text=f"🔴 **Groq Skeptic (Round {i+1}):**\n{skeptic_text}"
             )
             await asyncio.sleep(2)
             
@@ -95,7 +98,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_debate_topic))
     
-    print("🤖 ArgueArenaBot is running...")
+    print("🤖 ArgueArenaBot is running with Groq...")
     app.run_polling()
 
 if __name__ == '__main__':
