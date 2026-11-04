@@ -3,7 +3,7 @@ import time
 import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
-from openai import OpenAI
+from google import genai
 from dotenv import load_dotenv
 
 # Load variables from .env file (for local testing)
@@ -11,15 +11,12 @@ load_dotenv()
 
 # Fetch keys securely from environment variables
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-HF_TOKEN = os.getenv("HF_TOKEN")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Initialize Hugging Face client using OpenAI SDK format (Serverless Inference API)
-client = OpenAI(
-    base_url="https://api-inference.huggingface.co/v1",
-    api_key=HF_TOKEN
-)
+# Initialize Gemini client
+client = genai.Client(api_key=GEMINI_API_KEY)
 
-# Two different AI personas for debate using Llama
+# Two different AI personas for debate
 PERSONA_OPTIMIST = (
     "You are an enthusiastic, futuristic optimist. You look at the bright side, "
     "believe in rapid innovation, and defend technology and progress strongly. "
@@ -32,65 +29,61 @@ PERSONA_SKEPTIC = (
     "Keep your response concise (2-3 sentences max) and directly counter the opponent's previous point."
 )
 
-def hf_completion(system_prompt, user_prompt):
-    """Generate content using Hugging Face with auto-retry for connection drops"""
-    max_retries = 3
-    for attempt in range(max_retries):
+def generate_text(system_prompt, user_prompt):
+    """Generate response using Gemini 1.5 Flash with built-in safety fallback"""
+    full_prompt = f"{system_prompt}\n\n{user_prompt}"
+    
+    for attempt in range(2):
         try:
-            completion = client.chat.completions.create(
-                model="meta-llama/Llama-3.3-70b-Instruct",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                max_tokens=150
+            response = client.models.generate_content(
+                model='gemini-1.5-flash',
+                contents=full_prompt
             )
-            if completion and completion.choices:
-                return completion.choices[0].message.content
+            if response and response.text:
+                return response.text
         except Exception as e:
-            if attempt < max_retries - 1:
-                time.sleep(3) # Connection drop hone par 3 second wait karke dobara try karega
+            if attempt == 0:
+                time.sleep(2)
                 continue
-            else:
-                raise Exception(f"Hugging Face Connection Error: {str(e)}")
-                
-    raise Exception("Hugging Face response returned empty after retries.")
+            raise Exception(f"Gemini API Error: {str(e)}")
+            
+    raise Exception("Empty response received from Gemini.")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Welcome to ArgueArenaBot (Hugging Face Edition)!\n\n"
-        "Send me any topic, and Llama Optimist will debate against Llama Skeptic live!"
+        "👋 Welcome to ArgueArenaBot (Gemini 1.5 Flash Edition)!\n\n"
+        "Send me any topic, and Optimist will debate against Skeptic live!"
     )
 
 async def handle_debate_topic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     topic = update.message.text
     
-    await update.message.reply_text(f"🥊 **Topic Received:** *{topic}*\n\n🔥 Llama AI vs AI debate starting, please wait...")
+    await update.message.reply_text(f"🥊 **Topic Received:** *{topic}*\n\n🔥 Debate starting, please wait...")
 
     current_argument = topic
     rounds = 3
     
     for i in range(rounds):
         try:
-            # --- AI 1: Llama as Optimist ---
+            # --- AI 1: Optimist ---
             opt_prompt = f"Topic: {topic}\nPrevious point to counter: {current_argument}"
-            optimist_text = await asyncio.to_thread(hf_completion, PERSONA_OPTIMIST, opt_prompt)
+            optimist_text = await asyncio.to_thread(generate_text, PERSONA_OPTIMIST, opt_prompt)
             current_argument = optimist_text
             
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=f"🟢 **Llama Optimist (Round {i+1}):**\n{optimist_text}"
+                text=f"🟢 **Optimist (Round {i+1}):**\n{optimist_text}"
             )
             await asyncio.sleep(2)
 
-            # --- AI 2: Llama as Skeptic ---
+            # --- AI 2: Skeptic ---
             skep_prompt = f"Topic: {topic}\nPrevious point to counter: {current_argument}"
-            skeptic_text = await asyncio.to_thread(hf_completion, PERSONA_SKEPTIC, skep_prompt)
+            skeptic_text = await asyncio.to_thread(generate_text, PERSONA_SKEPTIC, skep_prompt)
             current_argument = skeptic_text
             
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=f"🔴 **Llama Skeptic (Round {i+1}):**\n{skeptic_text}"
+                text=f"🔴 **Skeptic (Round {i+1}):**\n{skeptic_text}"
             )
             await asyncio.sleep(2)
             
@@ -110,7 +103,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_debate_topic))
     
-    print("🤖 ArgueArenaBot is running with Hugging Face Retry Logic...")
+    print("🤖 ArgueArenaBot is running...")
     app.run_polling()
 
 if __name__ == '__main__':
