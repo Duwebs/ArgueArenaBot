@@ -7,10 +7,10 @@ from google import genai
 from openai import OpenAI
 from dotenv import load_dotenv
 
-# Load variables from .env file (for local development in Spck Editor)
+# Load variables from .env file (for local testing)
 load_dotenv()
 
-# Fetch keys safely from environment variables
+# Fetch keys securely from environment variables
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
