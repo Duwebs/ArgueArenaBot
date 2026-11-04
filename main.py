@@ -3,7 +3,6 @@ import time
 import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
-from google import genai
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -12,14 +11,12 @@ load_dotenv()
 
 # Fetch keys securely from environment variables
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Initialize AI clients
-gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+# Initialize OpenAI client
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
-# Two different AI personas for debate
+# Two different AI personas for debate using OpenAI
 PERSONA_OPTIMIST = (
     "You are an enthusiastic, futuristic optimist. You look at the bright side, "
     "believe in rapid innovation, and defend technology and progress strongly. "
@@ -32,57 +29,48 @@ PERSONA_SKEPTIC = (
     "Keep your response concise (2-3 sentences max) and directly counter the opponent's previous point."
 )
 
-def generate_gemini_stable(prompt_text):
-    """Generate content using gemini-flash-latest alias"""
-    try:
-        response = gemini_client.models.generate_content(
-            model='gemini-flash-latest',
-            contents=prompt_text
-        )
-        if response and response.text:
-            return response.text
-    except Exception as e:
-        raise Exception(f"Gemini Error: {str(e)}")
-        
-    raise Exception("Gemini response returned empty.")
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Welcome to ArgueArenaBot (Cross-AI Edition)!\n\n"
-        "Send me any topic, and Gemini (Optimist) will debate against ChatGPT (Skeptic) live!"
+        "Send me any topic, and ChatGPT (Optimist) will debate against ChatGPT (Skeptic) live!"
     )
 
 async def handle_debate_topic(update: Update, context: ContextTypes.DEFAULT_TYPE):
     topic = update.message.text
     
-    await update.message.reply_text(f"🥊 **Topic Received:** *{topic}*\n\n🔥 Gemini vs ChatGPT debate starting, please wait...")
+    await update.message.reply_text(f"🥊 **Topic Received:** *{topic}*\n\n🔥 AI vs AI debate starting, please wait...")
 
     current_argument = topic
     rounds = 3
     
     for i in range(rounds):
         try:
-            # --- AI 1: Gemini (Optimist) ---
-            gemini_prompt = f"{PERSONA_OPTIMIST}\n\nTopic: {topic}\nPrevious point to counter: {current_argument}"
-            
-            optimist_text = await asyncio.to_thread(generate_gemini_stable, gemini_prompt)
+            # --- AI 1: ChatGPT as Optimist ---
+            completion_opt = openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": PERSONA_OPTIMIST},
+                    {"role": "user", "content": f"Topic: {topic}\nPrevious point to counter: {current_argument}"}
+                ]
+            )
+            optimist_text = completion_opt.choices[0].message.content
             current_argument = optimist_text
             
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=f"🟢 **Gemini (Optimist - Round {i+1}):**\n{optimist_text}"
+                text=f"🟢 **ChatGPT (Optimist - Round {i+1}):**\n{optimist_text}"
             )
             await asyncio.sleep(2)
 
-            # --- AI 2: OpenAI / ChatGPT (Skeptic) ---
-            completion = openai_client.chat.completions.create(
+            # --- AI 2: ChatGPT as Skeptic ---
+            completion_skep = openai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": PERSONA_SKEPTIC},
                     {"role": "user", "content": f"Topic: {topic}\nPrevious point to counter: {current_argument}"}
                 ]
             )
-            skeptic_text = completion.choices[0].message.content
+            skeptic_text = completion_skep.choices[0].message.content
             current_argument = skeptic_text
             
             await context.bot.send_message(
