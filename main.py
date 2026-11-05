@@ -16,12 +16,12 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # Configure classic genai
 genai.configure(api_key=GEMINI_API_KEY)
 
-# Use the classic stable model name
+# Use gemini-2.5-flash model name compatible with classic SDK
 generation_config = {
     "temperature": 0.9,
     "max_output_tokens": 150,
 }
-model = genai.GenerativeModel(model_name="gemini-1.5-flash", generation_config=generation_config)
+model = genai.GenerativeModel(model_name="gemini-2.5-flash", generation_config=generation_config)
 
 # Two different AI personas for debate
 PERSONA_OPTIMIST = (
